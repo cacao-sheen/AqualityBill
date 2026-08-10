@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Sora:wght@500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Hide browser built-in password reveal buttons (Edge/Chrome/IE) */
+input::-ms-reveal,
+input::-ms-clear,
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button {
+  display: none !important;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+:root {
+  color-scheme: light;
+  --font-sans: 'Manrope', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Sora', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --surface: #ffffff;
+  --surface-muted: #f8fafc;
+  --border-soft: #e5e7eb;
+  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --bg-accent-1: #dbeafe;
+  --bg-accent-2: #cffafe;
+  --bg-accent-3: #fef3c7;
+  --selection-bg: #93c5fd;
+  --selection-text: #0f172a;
+}
+
+.dark {
+  color-scheme: dark;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --surface: #0f172a;
+  --surface-muted: #0b1220;
+  --border-soft: #1f2937;
+  --shadow-soft: 0 10px 30px rgba(2, 6, 23, 0.6);
+  --bg-accent-1: #1e1b4b;
+  --bg-accent-2: #0f172a;
+  --bg-accent-3: #1e293b;
+  --selection-bg: #334155;
+  --selection-text: #f8fafc;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, var(--bg-accent-1) 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, var(--bg-accent-2) 0%, transparent 50%),
+    radial-gradient(700px 400px at 80% 90%, var(--bg-accent-3) 0%, transparent 55%),
+    var(--surface-muted);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-text);
+}
