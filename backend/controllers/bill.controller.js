@@ -74,7 +74,7 @@ exports.getAllBills = async (req, res) => {
 
     const { data, error } = await supabase
       .from('billing_records')
-      .select('id, consumer_id, period_start, period_end, previous_reading, current_reading, consumption, base_charge, rate_per_cbm, total_amount, due_date, billing_date, payment_status, profiles(first_name, last_name, address)')
+      .select('id, consumer_id, period_start, period_end, previous_reading, current_reading, consumption, base_charge, rate_per_cbm, total_amount, due_date, billing_date, payment_status, profiles(first_name, last_name, address, meter_no)')
       .order('due_date', { ascending: false });
 
     if (error) throw error;
@@ -92,7 +92,7 @@ exports.getBill = async (req, res) => {
 
     const { data, error } = await supabase
       .from('billing_records')
-      .select('id, consumer_id, period_start, period_end, previous_reading, current_reading, consumption, base_charge, rate_per_cbm, total_amount, due_date, billing_date, payment_status, profiles(first_name, last_name, address)')
+      .select('id, consumer_id, period_start, period_end, previous_reading, current_reading, consumption, base_charge, rate_per_cbm, total_amount, due_date, billing_date, payment_status, profiles(first_name, last_name, address, meter_no)')
       .eq('id', req.params.id)
       .single();
 
@@ -147,7 +147,7 @@ exports.updateBill = async (req, res) => {
     // Fetch the updated record to return it
     const { data, error: fetchError } = await supabase
       .from('billing_records')
-      .select('id, consumer_id, period_start, period_end, previous_reading, current_reading, consumption, base_charge, rate_per_cbm, total_amount, due_date, billing_date, payment_status, profiles(first_name, last_name, address)')
+      .select('id, consumer_id, period_start, period_end, previous_reading, current_reading, consumption, base_charge, rate_per_cbm, total_amount, due_date, billing_date, payment_status, profiles(first_name, last_name, address, meter_no)')
       .eq('id', req.params.id)
       .single();
 

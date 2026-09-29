@@ -12,6 +12,7 @@ import WaterDisconnectionPanel, { DisconnectionCandidate } from './WaterDisconne
 type User = {
   _id: string
   name: string
+  meterNo?: string
   email?: string
   address?: string
   mobile?: string
@@ -34,6 +35,7 @@ function mapProfileToUser(profile: ProfileRow): User {
   return {
     _id: String(profile.id ?? profile.user_id ?? profile.profile_id ?? ''),
     name: formattedName || String(profile.name ?? profile.full_name ?? '—'),
+    meterNo: profile.meter_no ?? undefined,
     email: profile.email ?? profile.contact_email ?? undefined,
     address: profile.address ?? profile.location ?? profile.barangay ?? undefined,
     mobile: profile.mobile ?? profile.phone ?? profile.phone_number ?? profile.contact_number ?? profile.contact_no ?? undefined,
@@ -170,6 +172,7 @@ export default function UsersPage() {
 
     let y = drawSectionLabel(doc, 'Consumer Details', cursorY)
     y = drawKeyValueRows(doc, [
+      ['Meter No.:', user.meterNo || '—'],
       ['Name:', user.name || '—'],
       ['Address:', user.address || '—'],
       ['Mobile:', user.mobile || '—'],
@@ -187,6 +190,7 @@ export default function UsersPage() {
   const filteredUsers = users
     .filter((u) =>
       u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.meterNo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.mobile?.includes(searchQuery) ||
       u.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -290,7 +294,12 @@ export default function UsersPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {filteredUsers.map((user) => (
                     <tr key={user._id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
-                      <td className="px-5 py-3 font-medium text-slate-900 dark:text-slate-100">{user.name}</td>
+                      <td className="px-5 py-3 font-medium text-slate-900 dark:text-slate-100">
+                        <p className="text-[11px] font-mono font-normal text-slate-400 dark:text-slate-500 leading-tight">
+                          Meter #{user.meterNo ?? '—'}
+                        </p>
+                        {user.name}
+                      </td>
                       <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{user.address || '—'}</td>
                       <td className="px-5 py-3 text-slate-600 dark:text-slate-300">{user.mobile || '—'}</td>
                       <td className="px-5 py-3 text-slate-600 dark:text-slate-300 capitalize">{user.gender || '—'}</td>

@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import AppShell from '@/components/AppShell'
-import { AlertTriangle, Droplets, Thermometer, Zap } from 'lucide-react'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { AlertTriangle, Droplets, Thermometer } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import apiClient from '@/lib/axios'
 
 type Reading = {
@@ -12,7 +12,6 @@ type Reading = {
   ph: number | null
   turbidity: number | null
   tds_ppm: number | null
-  water_level_cm: number | null
   temperature_c: number | null
   timestamp: string | null
 }
@@ -51,7 +50,6 @@ function mapReading(row: Record<string, unknown>): Reading {
     ph: toNumber(row.ph),
     turbidity: toNumber(row.turbidity),
     tds_ppm: toNumber(row.tds_ppm ?? row.tds ?? row.total_dissolved_solids ?? row.totalDissolvedSolids),
-    water_level_cm: toNumber(row.water_level_cm),
     temperature_c: toNumber(row.temperature_c),
     timestamp: typeof row.timestamp === 'string' ? row.timestamp : null,
   }
@@ -153,16 +151,6 @@ export default function IoTMonitoringPage() {
     return () => window.clearInterval(interval)
   }, [])
 
-  const tankLevelData = useMemo(
-    () => history
-      .filter((item) => item.water_level_cm !== null && item.timestamp)
-      .map((item) => ({
-        time: formatAxisTime(item.timestamp),
-        level: item.water_level_cm,
-      })),
-    [history]
-  )
-
   const qualityData = useMemo(
     () => history
       .filter((item) => item.timestamp)
@@ -213,7 +201,6 @@ export default function IoTMonitoringPage() {
     return nextAlerts
   }, [latest])
 
-  const waterLevelStatus = metricStatus(latest?.water_level_cm, 0, 20.32)
   const phStatus = metricStatus(latest?.ph, 6.5, 8.5)
   const turbidityStatus = metricStatus(latest?.turbidity, 0, 5)
   const tdsStatus = metricStatus(latest?.tds_ppm, 0, 500)
@@ -228,24 +215,11 @@ export default function IoTMonitoringPage() {
         </div>
 
         <div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">Real-time System Overview</p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-              <div className="flex items-center gap-3 mb-3">
-                <Zap className="h-5 w-5 text-slate-400 dark:text-slate-500" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Current Water Level</p>
-              </div>
-              <p className="text-3xl font-bold text-primary-600">
-                {latest?.water_level_cm !== null && latest?.water_level_cm !== undefined
-                  ? `${latest.water_level_cm.toFixed(1)} L`
-                  : '—'}
-              </p>
-              <span className={`mt-2 inline-flex px-2.5 py-1 rounded-md text-xs font-medium ${waterLevelStatus.className}`}>
-                {waterLevelStatus.label}
-              </span>
-              <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">Last updated: {formatTimestamp(latest?.timestamp)}</p>
-            </div>
-
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Real-time System Overview</p>
+            <p className="text-xs text-slate-400 dark:text-slate-500">Last updated: {formatTimestamp(latest?.timestamp)}</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
               <div className="flex items-center gap-3 mb-3">
                 <Droplets className="h-5 w-5 text-slate-400 dark:text-slate-500" />
@@ -350,28 +324,6 @@ export default function IoTMonitoringPage() {
           ) : (
             <p className="text-sm text-slate-500">No forecast available.</p>
           )}
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100 mb-4">Water Tank Level Analytics</h3>
-          <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100 mb-4">Water Level History (Last 8 Hours)</h4>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={tankLevelData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="time" tick={{ fontSize: 12 }} />
-                <YAxis label={{ value: 'Level (cm)', angle: -90, position: 'insideLeft' }} />
-                <Tooltip formatter={(value) => `${value} cm`} />
-                <Line
-                  type="monotone"
-                  dataKey="level"
-                  stroke="#5b6eef"
-                  dot={false}
-                  strokeWidth={2}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

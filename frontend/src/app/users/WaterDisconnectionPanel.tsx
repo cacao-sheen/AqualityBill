@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { PowerOff, Power, Search } from 'lucide-react'
 import apiClient from '@/lib/axios'
+import { formatNumber } from '@/lib/pdfReport'
 
 // Matches the shape returned by GET /disconnections (aggregated from billing_records + profiles)
 export type DisconnectionCandidate = {
@@ -133,7 +134,7 @@ export default function WaterDisconnectionPanel({
                     </td>
                     <td className="px-5 py-3 text-center text-slate-600 dark:text-slate-300">{c.unpaid_bill_count}</td>
                     <td className="px-5 py-3 text-right font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                      ₱{c.total_due.toFixed(2)}
+                      ₱{formatNumber(c.total_due)}
                     </td>
                     <td className="px-5 py-3 text-center">
                       <span

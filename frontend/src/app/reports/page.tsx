@@ -6,6 +6,9 @@ import apiClient from '@/lib/axios'
 import { Download, FileText, Droplets, FileSpreadsheet } from 'lucide-react'
 import {
   createReportDocument,
+  createLetterheadDocument,
+  formatGeneratedTimestamp,
+  formatNumber,
   drawSectionLabel,
   drawHighlightBox,
   drawKeyValueRows,
@@ -21,8 +24,10 @@ type BillingRecord = {
   payment_status: string
   billing_date?: string
   due_date?: string
+  previous_reading?: number | string
+  current_reading?: number | string
   consumption?: number | string
-  profiles?: { first_name: string; last_name: string; address?: string }
+  profiles?: { first_name: string; last_name: string; address?: string; meter_no?: string }
 }
 
 type Reading = {
@@ -307,28 +312,35 @@ export default function ReportsPage() {
       ? new Date(Number(yearValue), 11, 31)
       : new Date(Number(yearValue), Number(monthValue), 0)
 
-    const { doc, cursorY } = createReportDocument({
-      title: 'Billing Summary Report',
-      subtitle: `Reporting Period: ${periodLabel}`,
-      meta: [`Coverage: ${formatDate(periodStart.toISOString())} to ${formatDate(periodEnd.toISOString())}`],
+    const { doc, cursorY } = createLetterheadDocument({
+      documentTitle: 'Billing Summary Report',
+      meta: [
+        { label: 'Period', value: periodLabel },
+        { label: 'Generated', value: formatGeneratedTimestamp() },
+      ],
     })
+
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...PDF_COLORS.textMuted)
+    doc.text(`Coverage: ${formatDate(periodStart.toISOString())} to ${formatDate(periodEnd.toISOString())}`, 14, cursorY - 4)
 
     let y = drawHighlightBox(doc, {
       x: 14,
       y: cursorY,
       width: 90,
       label: 'Total Collection',
-      value: `PHP ${billingSummary.totalPaid.toFixed(2)}`,
+      value: `PHP ${formatNumber(billingSummary.totalPaid)}`,
     })
     y += 10
 
     y = drawSectionLabel(doc, 'Summary', y)
     y = drawKeyValueRows(doc, [
       ['Total Billing Records:', String(billingSummary.totalCount)],
-      ['Total Billed Amount:', `PHP ${billingSummary.totalBilled.toFixed(2)}`],
-      ['Total Paid Amount:', `PHP ${billingSummary.totalPaid.toFixed(2)}`],
+      ['Total Billed Amount:', `PHP ${formatNumber(billingSummary.totalBilled)}`],
+      ['Total Paid Amount:', `PHP ${formatNumber(billingSummary.totalPaid)}`],
       ['Paid / Unpaid / Overdue:', `${billingSummary.paid} / ${billingSummary.unpaid} / ${billingSummary.overdue}`],
-      ['Average Consumption:', `${billingSummary.avgConsumption.toFixed(2)} m3`],
+      ['Average Consumption:', `${formatNumber(billingSummary.avgConsumption)} m3`],
     ], y)
 
     y += 4
@@ -353,8 +365,8 @@ export default function ReportsPage() {
         body: annualBreakdown.map((rowItem) => [
           rowItem.label,
           String(rowItem.count),
-          rowItem.total.toFixed(2),
-          rowItem.paid.toFixed(2),
+          formatNumber(rowItem.total),
+          formatNumber(rowItem.paid),
         ]),
         columnStyles: {
           1: { halign: 'right' },
@@ -364,7 +376,7 @@ export default function ReportsPage() {
       })
     }
 
-    addReportFooter(doc, 'This report is generated from billing records for administrative review.')
+    addReportFooter(doc, 'Generated from billing records for administrative review.')
     doc.save(`billing_summary_${billingMode}_${yearValue}${billingMode === 'monthly' ? `_${monthValue}` : ''}.pdf`)
   }
 
@@ -373,32 +385,47 @@ export default function ReportsPage() {
     return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str
   }
 
-  // Row-level export of the Billing Management table (same columns as /bills), scoped to the selected period.
+  // Row-level export of the Billing Management table, styled after the original
+  // Metolza Aqua Flow spreadsheet (Meter No. / Name / Present Reading / Previous
+  // Reading / Total cubic m. consumed / Amount) — with Billing Date, Due Date, and
+  // Payment Status kept on the end. Missing values are left blank, not "—", since
+  // this is meant to be read back into a spreadsheet.
   function downloadBillingCsv() {
-    const headers = ['Consumer Name', 'Address', 'Consumption (m3)', 'Billing Month', 'Due Date', 'Total Amount (PHP)', 'Payment Status']
+    const headers = [
+      'Meter No.', 'Name', 'Present Reading', 'Previous Reading', 'Total cubic m. consumed', 'Amount',
+      'Billing Date', 'Due Date', 'Payment Status',
+    ]
+
+    const csvDate = (value?: string | null) => {
+      if (!value) return ''
+      const parsed = new Date(value)
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+    }
+    const csvNumber = (value: number | string | undefined) => {
+      if (value === undefined || value === null || value === '') return ''
+      const n = Number(value)
+      return Number.isFinite(n) ? n.toFixed(2) : ''
+    }
 
     const rows = filteredBills.map((record) => {
-      const name = record.profiles
-        ? `${record.profiles.last_name}, ${record.profiles.first_name}`
-        : '—'
-      const basis = record.billing_date || record.due_date
-      const billingMonthText = basis && !Number.isNaN(new Date(basis).getTime())
-        ? new Date(basis).toLocaleString('en-US', { month: 'long', year: 'numeric' })
-        : '—'
-      // Wrapped as ="..." so Excel keeps it as literal text instead of auto-converting
-      // "May 2026" into a date value and redisplaying it as "May-26".
-      const billingMonth = billingMonthText === '—' ? billingMonthText : `="${billingMonthText}"`
+      const last = record.profiles?.last_name?.trim()
+      const first = record.profiles?.first_name?.trim() ?? ''
+      const name = record.profiles ? (last ? `${last}, ${first}` : first) : ''
 
       return [
+        record.profiles?.meter_no ?? '',
         name,
-        record.profiles?.address || '—',
-        safeNumber(record.consumption).toFixed(2),
-        billingMonth,
-        formatDate(record.due_date),
-        safeNumber(record.total_amount).toFixed(2),
-        normalizeStatus(record.payment_status) || '—',
+        csvNumber(record.current_reading),
+        csvNumber(record.previous_reading),
+        csvNumber(record.consumption),
+        csvNumber(record.total_amount),
+        csvDate(record.billing_date),
+        csvDate(record.due_date),
+        normalizeStatus(record.payment_status) || '',
       ]
     })
+
+    rows.sort((a, b) => String(a[1]).localeCompare(String(b[1])))
 
     const csvContent = [headers, ...rows]
       .map((row) => row.map(escapeCsvValue).join(','))
@@ -419,9 +446,12 @@ export default function ReportsPage() {
   }
 
   function downloadWaterQualityReport() {
-    const { doc, cursorY } = createReportDocument({
-      title: 'Water Quality Summary Report',
-      subtitle: 'Reporting Window: Last 24 hours of sensor data',
+    const { doc, cursorY } = createLetterheadDocument({
+      documentTitle: 'Water Quality Summary Report',
+      meta: [
+        { label: 'Window', value: 'Last 24 Hours' },
+        { label: 'Generated', value: formatGeneratedTimestamp() },
+      ],
     })
 
     let y = drawHighlightBox(doc, {
@@ -449,7 +479,7 @@ export default function ReportsPage() {
       ['Temperature Range:', qualityStats.temperature ? `${qualityStats.temperature.min.toFixed(1)} - ${qualityStats.temperature.max.toFixed(1)} (avg ${qualityStats.temperature.avg.toFixed(1)})` : 'No data'],
     ], y)
 
-    addReportFooter(doc, 'This report summarizes sensor data for external compliance review.')
+    addReportFooter(doc, 'Sensor data summary for external compliance review.')
     doc.save('water_quality_summary.pdf')
   }
 
@@ -604,11 +634,11 @@ export default function ReportsPage() {
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-blue-50/50 dark:bg-blue-500/10">
                   <p className="text-xs text-slate-500 dark:text-slate-400">Total Collection</p>
-                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">PHP {billingSummary.totalPaid.toFixed(2)}</p>
+                  <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">PHP {formatNumber(billingSummary.totalPaid)}</p>
                 </div>
                 <div className="rounded-lg border border-slate-200 dark:border-slate-800 p-3">
                   <p className="text-xs text-slate-500 dark:text-slate-400">Total Billed</p>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">PHP {billingSummary.totalBilled.toFixed(2)}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">PHP {formatNumber(billingSummary.totalBilled)}</p>
                 </div>
               </div>
 

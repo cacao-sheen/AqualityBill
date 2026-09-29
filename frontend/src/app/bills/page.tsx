@@ -6,12 +6,14 @@ import AppShell from '@/components/AppShell'
 import { Download, ArrowUpAZ, Search, ChevronDown } from 'lucide-react'
 import apiClient from '@/lib/axios'
 import {
-  createReportDocument,
+  createLetterheadDocument,
   drawSectionLabel,
   drawHighlightBox,
   drawKeyValueRows,
   drawStatusBadge,
+  drawReportTable,
   addReportFooter,
+  formatNumber,
   PDF_COLORS,
 } from '@/lib/pdfReport'
 
@@ -19,18 +21,18 @@ import {
 type BillingRecord = {
   id: string
   consumer_id: string
-  period_start: string
-  period_end: string
+  period_start: string | null
+  period_end: string | null
   previous_reading: number
   current_reading: number
   consumption: number
   base_charge: number
   rate_per_cbm: number
   total_amount: number
-  due_date: string
+  due_date: string | null
   billing_date: string
   payment_status: 'unpaid' | 'paid' | 'overdue'
-  profiles?: { first_name: string; last_name: string; address?: string }
+  profiles?: { first_name: string; last_name: string; address?: string; meter_no?: string }
 }
 
 const statusStyles: Record<string, string> = {
@@ -120,8 +122,25 @@ function StatusSelect({ value, onChange }: { value: Status; onChange: (val: Stat
 
 
 
-function formatDate(dateStr: string) {
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+// last_name is blank for org/household entries (e.g. "Simbahan/Kapilya Wesleyan"
+// stored entirely in first_name) — fall back gracefully instead of showing "undefined".
+function getInitials(profile?: { first_name: string; last_name: string }) {
+  if (!profile) return '?'
+  const l = profile.last_name?.trim()?.[0] ?? ''
+  const f = profile.first_name?.trim()?.[0] ?? ''
+  return (l + f) || '?'
+}
+
+function getDisplayName(profile?: { first_name: string; last_name: string }) {
+  if (!profile) return '—'
+  const last = profile.last_name?.trim()
+  const first = profile.first_name?.trim() ?? ''
+  return last ? `${last}, ${first}` : first || '—'
 }
 
 export default function BillsPage() {
@@ -226,56 +245,97 @@ export default function BillsPage() {
   }, [])
 
   function downloadBill(record: BillingRecord) {
-    const fullName = record.profiles ? `${record.profiles.first_name} ${record.profiles.last_name}` : '—'
+    const fullName = getDisplayName(record.profiles)
     const address = record.profiles?.address ?? '—'
+    const meterNo = record.profiles?.meter_no ?? '—'
     const status = record.payment_status.toUpperCase()
-
-    const { doc, cursorY } = createReportDocument({
-      title: 'Water Bill Ticket',
-      subtitle: 'Barangay Montelza Water Services — Official Water Bill Ticket',
-    })
-
-    let y = drawSectionLabel(doc, 'Consumer Information', cursorY)
-    y = drawKeyValueRows(doc, [
-      ['Name:', fullName],
-      ['Address:', address],
-    ], y)
-
-    y += 4
-    y = drawSectionLabel(doc, 'Billing Details', y)
-    y = drawKeyValueRows(doc, [
-      ['Billing Period:', `${formatDate(record.period_start)} – ${formatDate(record.period_end)}`],
-      ['Previous Reading:', `${Number(record.previous_reading).toFixed(2)} Cu.M`],
-      ['Current Reading:', `${Number(record.current_reading).toFixed(2)} Cu.M`],
-      ['Consumption:', `${Number(record.consumption).toFixed(2)} Cu.M`],
-      ['Base Charge:', `PHP ${Number(record.base_charge).toFixed(2)}`],
-      ['Rate per Cu.M:', `PHP ${Number(record.rate_per_cbm).toFixed(2)}`],
-    ], y)
-
-    y += 6
-    y = drawHighlightBox(doc, {
-      x: 14,
-      y,
-      width: 90,
-      label: 'Total Amount Due',
-      value: `PHP ${Number(record.total_amount).toFixed(2)}`,
-    })
-
-    y += 10
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(10)
-    doc.setTextColor(...PDF_COLORS.textDark)
-    doc.text('Due Date:', 14, y)
-    doc.setFont('helvetica', 'normal')
-    doc.text(formatDate(record.due_date), 55, y)
+    const billNo = `#${record.id.slice(0, 8).toUpperCase()}`
 
     const statusColor =
       record.payment_status === 'paid' ? PDF_COLORS.statusPaid :
       record.payment_status === 'overdue' ? PDF_COLORS.statusOverdue :
       PDF_COLORS.statusUnpaid
-    drawStatusBadge(doc, status, 120, y, statusColor)
+    const statusTint: [number, number, number] =
+      record.payment_status === 'paid' ? [209, 250, 229] :
+      record.payment_status === 'overdue' ? [254, 226, 226] :
+      [254, 243, 199]
 
-    addReportFooter(doc, 'This is a system-generated document. No signature required.')
+    const { doc, cursorY } = createLetterheadDocument({
+      documentTitle: 'Official Water Bill Statement',
+      meta: [
+        { label: 'Bill No.', value: billNo },
+        { label: 'Bill Date', value: formatDate(record.billing_date) },
+      ],
+    })
+
+    const leftX = 14
+    const rightX = 132
+    const rightWidth = 64
+
+    // Left column: who the bill is for
+    let leftY = drawSectionLabel(doc, 'Billed To', cursorY, leftX)
+    leftY = drawKeyValueRows(doc, [
+      ['Meter No.:', meterNo],
+      ['Name:', fullName],
+      ['Address:', address],
+      ['Billing Period:', `${formatDate(record.period_start)} – ${formatDate(record.period_end)}`],
+    ], leftY, { x: leftX, valueX: leftX + 38 })
+
+    // Right column: the number that matters most, impossible to miss
+    const totalBoxY = cursorY - 6
+    const totalBoxHeight = 26
+    drawHighlightBox(doc, {
+      x: rightX,
+      y: totalBoxY,
+      width: rightWidth,
+      height: totalBoxHeight,
+      label: 'Total Amount Due',
+      value: `PHP ${formatNumber(Number(record.total_amount))}`,
+      color: statusColor,
+      tint: statusTint,
+      valueFontSize: 18,
+    })
+
+    let rightY = totalBoxY + totalBoxHeight + 8
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...PDF_COLORS.textDark)
+    doc.text('Due Date:', rightX, rightY)
+    doc.setFont('helvetica', 'normal')
+    doc.text(formatDate(record.due_date), rightX + 22, rightY)
+    rightY += 7
+    drawStatusBadge(doc, status, rightX, rightY, statusColor)
+    rightY += 6
+
+    // Itemized charges table, like a utility bill's breakdown
+    let y = Math.max(leftY, rightY) + 6
+    y = drawSectionLabel(doc, 'Consumption & Charges', y, leftX)
+
+    const consumptionCharge = Number(record.consumption) * Number(record.rate_per_cbm)
+
+    y = drawReportTable(doc, {
+      startY: y,
+      head: [['Description', 'Reading (Cu.M)', 'Rate (PHP)', 'Amount (PHP)']],
+      body: [
+        ['Previous Reading', formatNumber(Number(record.previous_reading)), '—', '—'],
+        ['Current Reading', formatNumber(Number(record.current_reading)), '—', '—'],
+        ['Water Consumption', formatNumber(Number(record.consumption)), formatNumber(Number(record.rate_per_cbm)), formatNumber(consumptionCharge)],
+        ['Base Charge', '—', '—', formatNumber(Number(record.base_charge))],
+      ],
+      foot: [['', '', 'TOTAL AMOUNT DUE', `PHP ${formatNumber(Number(record.total_amount))}`]],
+      columnStyles: {
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+      },
+    })
+
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(8.5)
+    doc.setTextColor(...PDF_COLORS.textMuted)
+    doc.text('Thank you for keeping our water services running. For billing concerns, please contact your barangay water office.', 14, y + 10)
+
+    addReportFooter(doc, 'System-generated bill. Please pay before the due date.')
     doc.save(`bill_${fullName.replace(/\s+/g, '_')}_${formatDate(record.billing_date)}.pdf`)
   }
 
@@ -510,14 +570,17 @@ export default function BillsPage() {
                         <div className="flex items-center gap-3">
                           <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center shrink-0">
                             <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                              {record.profiles
-                                ? `${record.profiles.last_name[0]}${record.profiles.first_name[0]}`
-                                : '?'}
+                              {getInitials(record.profiles)}
                             </span>
                           </div>
-                          <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                            {record.profiles ? `${record.profiles.last_name}, ${record.profiles.first_name}` : '—'}
-                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-mono text-slate-400 dark:text-slate-500 leading-tight">
+                              Meter #{record.profiles?.meter_no ?? '—'}
+                            </p>
+                            <span className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                              {getDisplayName(record.profiles)}
+                            </span>
+                          </div>
                         </div>
                       </td>
 
@@ -530,7 +593,7 @@ export default function BillsPage() {
                       <td className="px-6 py-4 text-left">
                         <div className="flex flex-col">
                           <span className="font-medium text-slate-900 dark:text-slate-100">
-                            {new Date(record.billing_date || record.period_start || record.due_date).toLocaleString('en-US', { month: 'long', year: 'numeric' })}
+                            {new Date(record.billing_date || record.period_start || record.due_date || Date.now()).toLocaleString('en-US', { month: 'long', year: 'numeric' })}
                           </span>
                           <span className="text-xs text-slate-500 dark:text-slate-400">
                             Due: {formatDate(record.due_date)}
@@ -540,7 +603,7 @@ export default function BillsPage() {
 
                       {/* Total Amount */}
                       <td className="px-6 py-4 text-right font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
-                        ₱{Number(record.total_amount).toFixed(2)}
+                        ₱{formatNumber(Number(record.total_amount))}
                       </td>
 
                       {/* Payment Status */}

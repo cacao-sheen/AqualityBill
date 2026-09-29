@@ -5,3 +5,9 @@ node_modules/
 coverage/
 dist/
 build/
+
+# Served only through the password-gated /api/downloads/collector-app route
+# (see routes/download.routes.js) -- committing the APK to git would let
+# anyone with repo access pull it directly, bypassing that password entirely.
+private-downloads/*
+!private-downloads/.gitkeep

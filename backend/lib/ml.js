@@ -2,15 +2,7 @@
 
 const fs = require('fs')
 const path = require('path')
-let tf
-let hasNodeBinding = false
-
-try {
-  tf = require('@tensorflow/tfjs-node')
-  hasNodeBinding = true
-} catch (error) {
-  tf = require('@tensorflow/tfjs')
-}
+const tf = require('@tensorflow/tfjs')
 
 let modelPromise = null
 let scaler = null
@@ -140,6 +132,70 @@ function getScaler() {
   return scaler
 }
 
+// The model was exported from Keras 3, whose layer config format differs from what
+// @tensorflow/tfjs-layers (still Keras-2-shaped) expects: InputLayer uses `batch_shape`
+// instead of `batch_input_shape`, and every layer's `dtype` is a nested DTypePolicy
+// object instead of a plain string. This walks the topology and rewrites both to the
+// shape tfjs-layers can deserialize, without altering the actual weights/architecture.
+function normalizeKerasTopology(modelTopology) {
+  const layers = modelTopology?.model_config?.config?.layers
+  if (!Array.isArray(layers)) return modelTopology
+
+  for (const layer of layers) {
+    const config = layer.config
+    if (!config) continue
+
+    if (layer.class_name === 'InputLayer' && config.batch_shape && !config.batch_input_shape) {
+      config.batch_input_shape = config.batch_shape
+      delete config.batch_shape
+    }
+
+    if (config.dtype && typeof config.dtype === 'object') {
+      config.dtype = config.dtype.config?.name || 'float32'
+    }
+  }
+
+  return modelTopology
+}
+
+// Plain @tensorflow/tfjs has no Node filesystem I/O router (that only comes with the
+// native @tensorflow/tfjs-node binding, which requires a C++ compile toolchain this
+// environment doesn't have). This handler reads model.json and its weight shard(s)
+// directly via fs and hands tfjs the parsed artifacts, so the trained model can load
+// and run on the pure-JS CPU backend without any native dependency.
+function createFileSystemIOHandler(modelJsonPath) {
+  return {
+    async load() {
+      const modelJson = JSON.parse(fs.readFileSync(modelJsonPath, 'utf8'))
+      const modelDir = path.dirname(modelJsonPath)
+
+      const weightSpecs = []
+      const buffers = []
+      for (const group of modelJson.weightsManifest) {
+        weightSpecs.push(...group.weights)
+        for (const weightPath of group.paths) {
+          buffers.push(fs.readFileSync(path.join(modelDir, weightPath)))
+        }
+      }
+
+      const concatenated = Buffer.concat(buffers)
+      const weightData = concatenated.buffer.slice(
+        concatenated.byteOffset,
+        concatenated.byteOffset + concatenated.byteLength
+      )
+
+      return {
+        modelTopology: normalizeKerasTopology(modelJson.modelTopology),
+        weightSpecs,
+        weightData,
+        format: modelJson.format,
+        generatedBy: modelJson.generatedBy,
+        convertedBy: modelJson.convertedBy,
+      }
+    },
+  }
+}
+
 function getModel() {
   if (modelPromise) return modelPromise
 
@@ -153,8 +209,7 @@ function getModel() {
     throw new Error(`Model file not found at ${modelPath}`)
   }
 
-  const modelUrl = `file://${resolvedModelPath}`
-  modelPromise = tf.loadLayersModel(modelUrl)
+  modelPromise = tf.loadLayersModel(createFileSystemIOHandler(resolvedModelPath))
   return modelPromise
 }
 
@@ -177,15 +232,7 @@ function unscalePrediction(prediction, scalerInfo) {
   return prediction.map((value, index) => unscaleValue(value, scalerInfo.min[index], scalerInfo.max[index]))
 }
 
-async function forecast(sequence, options = {}) {
-  if (!hasNodeBinding) {
-    const fallback = trendForecast(sequence, options)
-    if (!fallback) {
-      throw new Error('Not enough sensor readings available for forecasting')
-    }
-    return fallback
-  }
-
+async function forecastWithLSTM(sequence, options = {}) {
   const scalerInfo = getScaler()
   const model = await getModel()
 
@@ -202,7 +249,24 @@ async function forecast(sequence, options = {}) {
   return unscalePrediction(rawPrediction, scalerInfo)
 }
 
+// The trained LSTM (forecastWithLSTM, still available above) was backtested against
+// real stored readings in backend/scripts/backtest-forecast.js and found roughly two
+// orders of magnitude less accurate than this simpler trend method across every
+// feature -- it was very likely trained on a dataset that doesn't represent this
+// deployment's actual sensors/water source. Using the trend method as the real
+// forecaster until the LSTM is retrained on this project's own collected data and
+// re-validated with the same backtest.
+async function forecast(sequence, options = {}) {
+  const result = trendForecast(sequence, options)
+  if (!result) {
+    throw new Error('Not enough sensor readings available for forecasting')
+  }
+  return result
+}
+
 module.exports = {
   forecast,
+  forecastWithLSTM,
   getScaler,
+  trendForecast,
 }

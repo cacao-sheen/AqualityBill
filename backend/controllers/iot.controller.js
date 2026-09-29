@@ -24,7 +24,6 @@ function normalizeIncomingReading(body) {
     ph: toFiniteNumber(pickValue(body, ['ph', 'ph_level'])),
     turbidity: toFiniteNumber(pickValue(body, ['turbidity', 'turbidity_ntu', 'ntu'])),
     tds_ppm: toFiniteNumber(pickValue(body, ['tds_ppm', 'tds', 'total_dissolved_solids', 'totalDissolvedSolids'])),
-    water_level_cm: toFiniteNumber(pickValue(body, ['water_level_l', 'waterLevelL', 'water_level_cm', 'waterLevelCm', 'water_level', 'waterLevel'])),
     temperature_c: toFiniteNumber(pickValue(body, ['temperature_c', 'temperatureC', 'temperature'])),
     timestamp: timestampRaw ? new Date(String(timestampRaw)).toISOString() : new Date().toISOString(),
   };
@@ -39,7 +38,6 @@ function validateReadingPayload(payload) {
   if (payload.tds_ppm !== null && (payload.tds_ppm < 0 || payload.tds_ppm > 5000)) {
     errors.push('tds_ppm must be between 0 and 5000');
   }
-  if (payload.water_level_cm === null || payload.water_level_cm < 0 || payload.water_level_cm > 10000) errors.push('water level must be between 0 and 10000');
   if (payload.temperature_c === null || payload.temperature_c < -30 || payload.temperature_c > 120) errors.push('temperature_c must be between -30 and 120');
   if (!payload.timestamp || Number.isNaN(new Date(payload.timestamp).getTime())) errors.push('timestamp must be a valid ISO date');
 
@@ -53,7 +51,6 @@ function mapRow(row) {
     ph: toFiniteNumber(row.ph ?? row.ph_level),
     turbidity: toFiniteNumber(row.turbidity ?? row.turbidity_ntu),
     tds_ppm: toFiniteNumber(row.tds_ppm ?? row.tds ?? row.total_dissolved_solids ?? row.totalDissolvedSolids),
-    water_level_cm: toFiniteNumber(row.water_level_cm ?? row.water_level),
     temperature_c: toFiniteNumber(row.temperature_c ?? row.temperature),
     timestamp: row.timestamp ?? row.recorded_at ?? row.created_at ?? null,
   };
@@ -249,7 +246,7 @@ exports.forecastReading = async (req, res) => {
       });
     }
 
-    const prediction = await ml.forecast(sequence, { horizonSeconds, sampleIntervalSeconds: 3 });
+    const prediction = await ml.forecast(sequence, { horizonSeconds, sampleIntervalSeconds: 10 });
     const [ph, temp, tds, turb] = prediction;
 
     const thresholds = getThresholds();
@@ -289,7 +286,7 @@ exports.forecastLatestReadings = async (req, res) => {
       });
     }
 
-    const prediction = await ml.forecast(sequence, { horizonSeconds, sampleIntervalSeconds: 3 });
+    const prediction = await ml.forecast(sequence, { horizonSeconds, sampleIntervalSeconds: 10 });
     const [ph, temp, tds, turb] = prediction;
 
     const thresholds = getThresholds();

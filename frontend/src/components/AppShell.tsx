@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuthStore } from '@/store/authStore'
 import apiClient from '@/lib/axios'
+import BrandMark from '@/components/BrandMark'
 import {
   LayoutDashboard,
   Receipt,
@@ -14,18 +15,19 @@ import {
   Sun,
   Moon,
   LogOut,
-  Waves,
   Settings,
   FileText,
   Wrench,
   Bell,
   X,
+  UserCheck,
 } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard',      href: '/dashboard',    icon: <LayoutDashboard className="h-5 w-5" /> },
   { label: 'Billing',        href: '/bills',        icon: <Receipt         className="h-5 w-5" /> },
   { label: 'Consumers',      href: '/users',        icon: <Users           className="h-5 w-5" /> },
+  { label: 'Account Requests', href: '/account-requests', icon: <UserCheck className="h-5 w-5" /> },
   { label: 'IoT Monitoring', href: '/iot',          icon: <Wifi            className="h-5 w-5" /> },
   { label: 'Leak Reports',   href: '/leak-reports', icon: <Droplets        className="h-5 w-5" /> },
   { label: 'Installations',  href: '/installations', icon: <Wrench        className="h-5 w-5" /> },
@@ -177,9 +179,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0">
         <div className="px-6 py-5">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
-              <Waves className="h-5 w-5 text-white" />
-            </div>
+            <BrandMark className="h-8 w-8" />
             <span className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">AqualityBill</span>
           </div>
         </div>
