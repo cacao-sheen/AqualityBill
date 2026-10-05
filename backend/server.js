@@ -5,7 +5,12 @@ const cors = require('cors');
 const app = express();
 
 // Middleware
-app.use(cors());
+// CORS_ORIGIN: comma-separated list of allowed origins (e.g. https://yourdomain.com).
+// Leave unset in development to allow all origins.
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim())
+  : null;
+app.use(cors(allowedOrigins ? { origin: allowedOrigins } : undefined));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
