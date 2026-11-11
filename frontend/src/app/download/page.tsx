@@ -8,7 +8,7 @@ import BrandMark from '@/components/BrandMark'
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
 // Bump these whenever a new APK is published (match versionName in each app's build.gradle.kts).
-const CONSUMER_APP_VERSION = '1.2'
+const CONSUMER_APP_VERSION = '1.3'
 const COLLECTOR_APP_VERSION = '1.1'
 
 const APPS = [
