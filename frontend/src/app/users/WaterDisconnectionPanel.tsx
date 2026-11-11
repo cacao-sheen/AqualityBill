@@ -106,7 +106,7 @@ export default function WaterDisconnectionPanel({
             {searchQuery ? 'No overdue consumers found matching your search.' : 'No consumers are currently eligible for disconnection.'}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[760px] text-sm">
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                 <th className="px-5 py-3">Name</th>

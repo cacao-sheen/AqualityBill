@@ -119,6 +119,7 @@ export default function DashboardPage() {
   const [iotLatest, setIotLatest] = useState<Reading | null>(null)
   const [iotForecast, setIotForecast] = useState<ForecastPayload | null>(null)
   const [disconnectionCount, setDisconnectionCount] = useState<number | null>(null)
+  const [consumerStats, setConsumerStats] = useState<{ total: number; withAccount: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [monthValue, setMonthValue] = useState(() => String(new Date().getMonth() + 1).padStart(2, '0'))
@@ -134,9 +135,10 @@ export default function DashboardPage() {
           apiClient.get('/iot/latest'),
           apiClient.get('/iot/forecast/latest?seq_length=150'),
           apiClient.get('/disconnections'),
+          apiClient.get('/users'),
         ])
 
-        const [billsRes, leaksRes, latestRes, forecastRes, disconnectionsRes] = results
+        const [billsRes, leaksRes, latestRes, forecastRes, disconnectionsRes, usersRes] = results
         let nextError: string | null = null
 
         if (billsRes.status === 'fulfilled') {
@@ -173,6 +175,17 @@ export default function DashboardPage() {
           setDisconnectionCount(null)
         }
 
+        if (usersRes.status === 'fulfilled') {
+          const profiles = (usersRes.value.data?.data ?? []) as { auth_user_id?: string | null }[]
+          setConsumerStats({
+            total: profiles.length,
+            // A profile is linked to a mobile-app login once its account request is approved.
+            withAccount: profiles.filter((p) => !!p.auth_user_id).length,
+          })
+        } else {
+          setConsumerStats(null)
+        }
+
         setError(nextError)
       } catch (fetchError: any) {
         setError(getErrorMessage(fetchError))
@@ -181,6 +194,7 @@ export default function DashboardPage() {
         setIotLatest(null)
         setIotForecast(null)
         setDisconnectionCount(null)
+        setConsumerStats(null)
       } finally {
         setLoading(false)
       }
@@ -468,6 +482,25 @@ export default function DashboardPage() {
     return rows.slice(0, 4)
   }, [overdueCount, unpaidCount, pendingLeaks, ongoingLeaks, mlAlerts])
 
+  const consumersLoading = loading || consumerStats === null
+  const accountShare = consumerStats && consumerStats.total > 0
+    ? (consumerStats.withAccount / consumerStats.total) * 100
+    : 0
+  const consumerOverview = [
+    {
+      label: 'Total Consumers',
+      value: consumersLoading ? '...' : String(consumerStats.total),
+      caption: 'All registered consumer profiles',
+    },
+    {
+      label: 'Consumers with App Account',
+      value: consumersLoading ? '...' : String(consumerStats.withAccount),
+      caption: consumersLoading
+        ? 'Consumers linked to a mobile app account'
+        : `${accountShare.toFixed(1)}% of consumers · ${consumerStats.total - consumerStats.withAccount} not yet registered`,
+    },
+  ]
+
   const quickStats = [
     {
       label: 'Monthly Collection',
@@ -509,7 +542,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Operations Snapshot</h2>
         </div>
 
-        <div className="flex items-center justify-end gap-4">
+        <div className="flex flex-wrap items-center sm:justify-end gap-3 sm:gap-4">
           <div className="flex items-center gap-2">
             <label htmlFor="collection-month" className="text-sm text-slate-600 dark:text-slate-300">
               Month
@@ -551,6 +584,16 @@ export default function DashboardPage() {
             {error}
           </div>
         )}
+
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          {consumerOverview.map((item) => (
+            <div key={item.label} className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm flex flex-col gap-1.5">
+              <p className="text-sm text-slate-500 dark:text-slate-400">{item.label}</p>
+              <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100">{item.value}</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{item.caption}</p>
+            </div>
+          ))}
+        </div>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {quickStats.map((item) => (
