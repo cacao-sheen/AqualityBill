@@ -192,12 +192,12 @@ export default function LeakReportsPage() {
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+          <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
               <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">All Leak Reports</h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">Overview of all reported water leaks and their current statuses.</p>
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="flex flex-wrap items-center sm:justify-end gap-2">
               <div className="flex flex-wrap items-center gap-1.5">
                 {(['all', 'pending', 'ongoing', 'resolved'] as const).map((option) => {
                   const isActive = statusFilter === option
@@ -241,7 +241,7 @@ export default function LeakReportsPage() {
                 </Dialog.Trigger>
                 <Dialog.Portal>
                   <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-                  <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 rounded-xl shadow-lg p-6 w-full max-w-xl z-50">
+                  <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 rounded-xl shadow-lg p-6 w-[calc(100%-2rem)] max-w-xl max-h-[90vh] overflow-y-auto z-50">
                     <div className="flex items-center justify-between mb-2">
                       <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                         Report New Leak
@@ -318,7 +318,7 @@ export default function LeakReportsPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[760px] text-sm">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
                   <th className="px-5 py-3">Date</th>
@@ -423,7 +423,7 @@ export default function LeakReportsPage() {
       <Dialog.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 rounded-xl shadow-lg p-6 w-full max-w-xl z-50">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 rounded-xl shadow-lg p-6 w-[calc(100%-2rem)] max-w-xl max-h-[90vh] overflow-y-auto z-50">
             <div className="flex items-center justify-between mb-4">
               <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">Leak Report Details</Dialog.Title>
               <Dialog.Close asChild>
@@ -495,7 +495,7 @@ export default function LeakReportsPage() {
       <Dialog.Root open={photoOpen} onOpenChange={setPhotoOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 rounded-xl shadow-lg p-6 w-full max-w-2xl z-50">
+          <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-slate-900 rounded-xl shadow-lg p-6 w-[calc(100%-2rem)] max-w-2xl max-h-[90vh] overflow-y-auto z-50">
             <div className="flex items-center justify-between mb-2">
               <Dialog.Title className="text-lg font-semibold text-slate-900 dark:text-slate-100">Leak Report Photo</Dialog.Title>
               <Dialog.Close asChild>

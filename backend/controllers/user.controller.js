@@ -120,6 +120,9 @@ exports.createUser = async (req, res) => {
 
     res.status(201).json({ success: true, data });
   } catch (error) {
+    if (error?.code === '23505' && String(error.message || '').includes('meter_no')) {
+      return res.status(409).json({ message: `Meter number "${req.body?.meter_no}" is already assigned to another consumer.` });
+    }
     res.status(500).json({ message: error.message });
   }
 };

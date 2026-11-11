@@ -21,6 +21,7 @@ import {
   Bell,
   X,
   UserCheck,
+  Menu,
 } from 'lucide-react'
 
 const navItems = [
@@ -42,6 +43,25 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<'light' | 'dark'>('light')
   const [toastMessage, setToastMessage] = useState<string | null>(null)
   const [toastVisible, setToastVisible] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
+  // Close the mobile menu whenever the page changes
+  useEffect(() => {
+    setMobileNavOpen(false)
+  }, [pathname])
+
+  // Stop the page behind the open mobile menu from scrolling
+  useEffect(() => {
+    if (!mobileNavOpen) return
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMobileNavOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [mobileNavOpen])
 
   // Initialize Supabase auth session listener
   useEffect(() => {
@@ -173,45 +193,87 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   if (loading || !isAuthenticated) return null
 
-  return (
-    <div className="h-screen overflow-hidden bg-gray-50 dark:bg-slate-950 flex">
-      {/* Sidebar */}
-      <aside className="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="px-6 py-5">
-          <div className="flex items-center gap-2.5">
-            <BrandMark className="h-8 w-8" />
-            <span className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">AqualityBill</span>
-          </div>
+  const sidebarContent = (
+    <>
+      <div className="px-6 py-5 flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <BrandMark className="h-8 w-8" />
+          <span className="text-xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">AqualityBill</span>
         </div>
-        <nav className="flex-1 px-4 space-y-1">
-          {navItems.map((item) => {
-            const active = pathname === item.href
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active
-                    ? 'bg-primary-50 text-primary-700 dark:bg-slate-800 dark:text-slate-100'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <span className={active ? 'text-primary-600' : 'text-slate-400 dark:text-slate-500'}>{item.icon}</span>
-                {item.label}
-              </Link>
-            )
-          })}
-        </nav>
-        <div className="p-4 text-xs text-slate-400 dark:text-slate-500">Aquality Cooperative © {new Date().getFullYear()}</div>
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setMobileNavOpen(false)}
+          className="lg:hidden h-8 w-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const active = pathname === item.href
+          return (
+            <Link
+              key={item.label}
+              href={item.href}
+              onClick={() => setMobileNavOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 lg:py-2 rounded-lg text-sm font-medium transition-colors ${
+                active
+                  ? 'bg-primary-50 text-primary-700 dark:bg-slate-800 dark:text-slate-100'
+                  : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+            >
+              <span className={active ? 'text-primary-600' : 'text-slate-400 dark:text-slate-500'}>{item.icon}</span>
+              {item.label}
+            </Link>
+          )
+        })}
+      </nav>
+      <div className="p-4 text-xs text-slate-400 dark:text-slate-500">Aquality Cooperative © {new Date().getFullYear()}</div>
+    </>
+  )
+
+  return (
+    <div className="h-[100dvh] overflow-hidden bg-gray-50 dark:bg-slate-950 flex">
+      {/* Sidebar (desktop) */}
+      <aside className="hidden lg:flex lg:flex-col w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0">
+        {sidebarContent}
+      </aside>
+
+      {/* Sidebar (mobile drawer) */}
+      <div
+        className={`lg:hidden fixed inset-0 z-40 bg-black/50 transition-opacity ${mobileNavOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setMobileNavOpen(false)}
+        aria-hidden="true"
+      />
+      <aside
+        className={`lg:hidden fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shadow-xl transition-transform duration-200 ${
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+        aria-label="Navigation menu"
+        aria-hidden={!mobileNavOpen}
+      >
+        {sidebarContent}
       </aside>
 
       {/* Main */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0">
-          <div>
-            <h1 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{user?.email || 'Administrator'}</h1>
+        <header className="h-14 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 px-4 sm:px-6 shrink-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              type="button"
+              aria-label="Open menu"
+              aria-expanded={mobileNavOpen}
+              onClick={() => setMobileNavOpen(true)}
+              className="lg:hidden -ml-1 h-9 w-9 shrink-0 rounded-lg flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <BrandMark className="lg:hidden h-7 w-7 shrink-0" />
+            <h1 className="hidden sm:block text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{user?.email || 'Administrator'}</h1>
+            <span className="sm:hidden text-base font-bold text-slate-900 dark:text-slate-100 tracking-tight">AqualityBill</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
               href="/notifications"
               aria-label="View notifications"
@@ -233,17 +295,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 await logout()
                 router.push('/login')
               }}
+              aria-label="Logout"
               className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-slate-100 transition-colors"
             >
               <LogOut className="h-4 w-4" />
-              Logout
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </header>
 
-        <main className="flex-1 min-h-0 overflow-y-auto p-6">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           {toastVisible && toastMessage ? (
-            <div className="fixed top-4 right-4 z-50 max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
+            <div className="fixed top-4 left-4 right-4 sm:left-auto z-50 sm:max-w-sm rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-lg dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-start gap-3">
                 <div className="h-9 w-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-semibold dark:bg-blue-500/10 dark:text-blue-300">
                   ML
