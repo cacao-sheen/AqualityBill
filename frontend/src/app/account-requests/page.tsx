@@ -10,6 +10,7 @@ type MatchedProfile = {
   name: string | null
   meter_no: string
   already_linked: boolean
+  linked_to_requester?: boolean
   email: string | null
   mobile: string | null
 }
@@ -173,6 +174,9 @@ export default function AccountRequestsPage() {
                   {filtered.map((request) => {
                     const profile = request.matched_profile
                     const busy = pendingActionId === request.id
+                    // Approved earlier, but the consumer profile was since deleted, had its
+                    // meter number changed, or got linked to a different login.
+                    const staleApproval = request.status === 'approved' && !profile?.linked_to_requester
                     return (
                       <tr key={request.id} className="align-top text-slate-700 dark:text-slate-200">
                         <td className="px-3 py-3 text-xs text-slate-500 dark:text-slate-400">{formatDate(request.created_at)}</td>
@@ -183,12 +187,28 @@ export default function AccountRequestsPage() {
                           <div className="text-xs text-slate-500 dark:text-slate-400">{request.phone || 'No phone'}</div>
                         </td>
                         <td className="px-3 py-3">
-                          {profile ? (
+                          {staleApproval ? (
+                            <div className="max-w-[260px] text-xs text-amber-600 dark:text-amber-400">
+                              <div className="inline-flex items-center gap-1 font-semibold">
+                                <AlertTriangle className="h-3.5 w-3.5" /> No longer linked
+                              </div>
+                              <div className="mt-0.5 text-slate-500 dark:text-slate-400">
+                                {profile
+                                  ? 'This meter is now linked to a different account.'
+                                  : 'The consumer with this meter number was deleted or their meter number was changed after approval.'}{' '}
+                                The consumer can send a new request from the app.
+                              </div>
+                            </div>
+                          ) : profile ? (
                             <>
                               <div className="font-medium">{profile.name || 'Unnamed on file'}</div>
-                              {profile.already_linked && (
+                              {profile.linked_to_requester ? (
+                                <div className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                  <Check className="h-3.5 w-3.5" /> Linked to this account
+                                </div>
+                              ) : profile.already_linked && (
                                 <div className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-600 dark:text-amber-400">
-                                  <AlertTriangle className="h-3.5 w-3.5" /> Already linked to an account
+                                  <AlertTriangle className="h-3.5 w-3.5" /> Already linked to another account
                                 </div>
                               )}
                             </>
@@ -199,8 +219,12 @@ export default function AccountRequestsPage() {
                           )}
                         </td>
                         <td className="px-3 py-3">
-                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${statusStyles[request.status]}`}>
-                            {request.status}
+                          <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase ${
+                            staleApproval
+                              ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300'
+                              : statusStyles[request.status]
+                          }`}>
+                            {staleApproval ? 'Approved · unlinked' : request.status}
                           </span>
                           {request.status === 'rejected' && request.admin_note && (
                             <div className="mt-1 max-w-[200px] text-xs text-slate-500 dark:text-slate-400">{request.admin_note}</div>
