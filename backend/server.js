@@ -4,6 +4,10 @@ const cors = require('cors');
 
 const app = express();
 
+// Hostinger runs the app behind a proxy; trust its X-Forwarded-For so req.ip is the
+// real client address (the collector PIN lockout is per IP).
+app.set('trust proxy', 1);
+
 // Middleware
 // CORS_ORIGIN: comma-separated list of allowed origins (e.g. https://yourdomain.com).
 // Leave unset in development to allow all origins.
@@ -30,6 +34,7 @@ const installationRoutes = require('./routes/installation.routes');
 const disconnectionRoutes = require('./routes/disconnection.routes');
 const claimRequestRoutes = require('./routes/claimRequest.routes');
 const downloadRoutes = require('./routes/download.routes');
+const collectorPinRoutes = require('./routes/collectorPin.routes');
 
 app.use('/api/users', userRoutes);
 app.use('/api/bills', billRoutes);
@@ -39,6 +44,7 @@ app.use('/api/installations', installationRoutes);
 app.use('/api/disconnections', disconnectionRoutes);
 app.use('/api/account-claims', claimRequestRoutes);
 app.use('/api/downloads', downloadRoutes);
+app.use('/api/collector-pin', collectorPinRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
