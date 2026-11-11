@@ -7,13 +7,19 @@ import BrandMark from '@/components/BrandMark'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
 
+// Bump these whenever a new APK is published (match versionName in each app's build.gradle.kts).
+const CONSUMER_APP_VERSION = '1.1'
+const COLLECTOR_APP_VERSION = '1.1'
+
 const APPS = [
   {
     key: 'consumer',
     name: 'AqualityBill',
     tagline: 'For consumers',
     description: 'View your water bill, check your payment status, and report leaks from your phone.',
-    apkPath: '/downloads/aqualitybill.apk',
+    // ?v= makes browsers fetch the new file instead of a cached older APK.
+    apkPath: `/downloads/aqualitybill.apk?v=${CONSUMER_APP_VERSION}`,
+    version: CONSUMER_APP_VERSION,
     locked: false,
     icon: <Droplet className="h-6 w-6" />,
     iconClass: 'bg-primary-500/10 text-primary-400',
@@ -24,6 +30,7 @@ const APPS = [
     tagline: 'For collectors',
     description: 'For water meter collectors — record readings and manage on-the-ground bill collection. Metolza staff only.',
     apkPath: null,
+    version: COLLECTOR_APP_VERSION,
     locked: true,
     icon: <ClipboardList className="h-6 w-6" />,
     iconClass: 'bg-emerald-500/10 text-emerald-400',
@@ -109,7 +116,7 @@ export default function DownloadPage() {
               </span>
               <h2 className="mt-3.5 text-lg font-semibold text-slate-100">{app.name}</h2>
               <span className="mt-1 text-[11px] font-medium uppercase tracking-wide text-slate-500">
-                {app.tagline}
+                {app.tagline} · v{app.version}
               </span>
               <p className="mt-3 mb-6 text-sm text-slate-400 leading-relaxed">
                 {app.description}
