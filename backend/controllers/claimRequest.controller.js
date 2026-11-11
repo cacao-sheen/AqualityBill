@@ -35,6 +35,9 @@ async function attachMatchedProfiles(requests) {
             name: displayName(profile),
             meter_no: profile.meter_no,
             already_linked: Boolean(profile.auth_user_id),
+            // True when this profile is linked to the very login that sent this request.
+            // An approved request whose profile is gone, or now linked elsewhere, is stale.
+            linked_to_requester: Boolean(profile.auth_user_id) && profile.auth_user_id === request.auth_user_id,
             email: profile.email ?? null,
             mobile: profile.mobile ?? profile.phone ?? null,
           }
